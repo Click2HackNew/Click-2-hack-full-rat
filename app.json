@@ -1,5 +1,5 @@
 {
-    "name": "click-2-hack-server",
-    "description": "backbone for click-2-hack app",
-    "repository": "https://github.com/anirudhmalik/click-2-hack/tree/master/click-2-hack-server"
+    "name": "xhunter-server",
+    "description": "backbone for xhunter app",
+    "repository": "https://github.com/anirudhmalik/xhunter/tree/master/xhunter-server"
 }
