@@ -1,13 +1,13 @@
 {
-  "name": "click-2-hack-server",
+  "name": "xhunter-server",
   "version": "1.0.0",
-  "description": "backbone for click-2-hack app",
+  "description": "backbone for xhunter app",
   "main": "index.js",
   "scripts": {
     "start": "nodemon index.js"
   },
   "keywords": [
-    "click-2-hack-server"
+    "xhunter-server"
   ],
   "author": "anirudhmalik",
   "license": "MIT",
